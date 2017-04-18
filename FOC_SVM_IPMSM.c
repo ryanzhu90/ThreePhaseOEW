@@ -6,6 +6,9 @@
 #include <UserFunc.h>
 #include <variables.h>
 #include <varinit.c>
+Float64 Amp=0.5;
+Float64 Freq=50;
+Float64 period = 0.1e-3,wt=0;
 void PWM_sync_interrupt(void)//60us
 {
 	RTLIB_TIC_START();          /* start time measurement */
@@ -70,6 +73,7 @@ void PWM_sync_interrupt(void)//60us
 	}
 	else
 	{
+		
 		//----------------- Measuring Position from Incremental Encoder -------------------
 		inc_curr= ds1104_inc_position_read_immediately(1,DS1104_INC_LINE_SUBDIV_4)*PI2/INC_LINES;//current position in radius
 		theta_rm =-(inc_curr +INIT_POS_OFFSET); //adding initial position to mechanical position;
@@ -86,7 +90,7 @@ void PWM_sync_interrupt(void)//60us
 	ia=GAIN_ADC5*ds1104_adc_read_ch_immediately(5)-ADC5_Ofst;//phase current of inverter 1
 	ib=GAIN_ADC6*ds1104_adc_read_ch_immediately(6)-ADC6_Ofst;//phase current of inverter 1
 	ic=GAIN_ADC7*ds1104_adc_read_ch_immediately(7)-ADC7_Ofst;//phase current of inverter 1
-	
+
 	if(ia>0.02)sign_ia=1.0;
 	else if(ia<-0.02)sign_ia=-1.0; 
 	//else sign_ia=0.0;
@@ -248,6 +252,10 @@ fol(wm_inc, wm_inc_lpf, fol_w_inc);
 	Ual_ref=Ud_ref*cos(theta_re)-Uq_ref*sin(theta_re);//for SVPWM
 	Ube_ref=Ud_ref*sin(theta_re)+Uq_ref*cos(theta_re);//for SVPWM
 	
+		
+	wt=wt+pi*2*Freq*period;
+	
+	
 	//------------- Output Voltage Limit for SVPWM-----------------
 	Vomax=U_MAX_LINE*sqrt(2.0/3.0);//Vomax is max phase peak
 	if(0.866*V_DC<Vomax)Vomax=0.866*V_DC;	
@@ -259,10 +267,13 @@ fol(wm_inc, wm_inc_lpf, fol_w_inc);
 	Uo_ref=Vomax*Uo_ref/Vo_mag;
 	Vo_mag=Vomax;
 	} 
-	m=SQRT3*Vo_mag/(1.5*V_DC);
-	theta_Vo=atan2(Ube_ref,Ual_ref);//[-PI,PI)
-	if(theta_Vo<0.0)theta_Vo=theta_Vo+PI2;
+		
+	m=Amp;//SQRT3*Vo_mag/(1.5*V_DC);
+	theta_Vo=wt;//atan2(Ube_ref,Ual_ref);//[-PI,PI)
 	
+	if(theta_Vo<0.0)theta_Vo=theta_Vo+PI2;
+	else if(theta_Vo>=PI2) theta_Vo=theta_Vo-PI2;
+		
 	if(theta_Vo>=0.0 && theta_Vo<PI_3)
 	{
 		sector=1;//V0(000),V1(100),V2(110),V7(111)
@@ -270,10 +281,10 @@ fol(wm_inc, wm_inc_lpf, fol_w_inc);
 		d2=m*sin(theta_Vo);          //V2(2/3)tH      //V5(1/3)tL
 		deltaT=(Uo_ref/Vdc)-(d2/3.0)+(d1/3.0);
 		
-		//d0_1=0;
-		//d0_2=0;
-		d0_1=0.5*deltaT+0.5*(1.0-d1-d2);
-		d0_2=-0.5*deltaT+0.5*(1.0-d1-d2);
+		d0_1=0;
+		d0_2=0;
+		//d0_1=0.5*deltaT+0.5*(1.0-d1-d2);
+		//d0_2=-0.5*deltaT+0.5*(1.0-d1-d2);
 
 		duty[0]=1.0-0.5*d0_1;//V1(100),V2(110),V7(111)   
 		duty[1]=0.5*d0_1+d2;//V2(110),V7(111)
@@ -289,10 +300,10 @@ fol(wm_inc, wm_inc_lpf, fol_w_inc);
 		d1=m*sin(PI_3-theta_Vo); //V1(1/3)tL        //V4(2/3)tH
 		d2=m*sin(theta_Vo);          //V2(2/3)tH      //V5(1/3)tL
 		deltaT=(Uo_ref/Vdc)-(d2/3.0)+(d1/3.0);
-		//d0_1=0;
-		//d0_2=0;
-		d0_1=0.5*deltaT+0.5*(1.0-d1-d2);
-		d0_2=-0.5*deltaT+0.5*(1.0-d1-d2);
+		d0_1=0;
+		d0_2=0;
+		//d0_1=0.5*deltaT+0.5*(1.0-d1-d2);
+		//d0_2=-0.5*deltaT+0.5*(1.0-d1-d2);
 		duty[0]=0.5*d0_1+d1;//d1x+d1y;//V1(100)    //V1(100) V2(110) 
 		duty[1]=1.0-0.5*d0_1;//d1y;//V2(110)
 		duty[2]=0.5*d0_1;//V7(111)
@@ -307,11 +318,11 @@ fol(wm_inc, wm_inc_lpf, fol_w_inc);
 		d1=m*sin(PI_3-theta_Vo); //V1(1/3)tL        //V4(2/3)tH
 		d2=m*sin(theta_Vo);          //V2(2/3)tH      //V5(1/3)tL
 		deltaT=(Uo_ref/Vdc)-(d2/3.0)+(d1/3.0);
-		//d0_1=0;
-		//d0_2=0;
+		d0_1=0;
+		d0_2=0;
 
-		d0_1=0.5*deltaT+0.5*(1.0-d1-d2);
-		d0_2=-0.5*deltaT+0.5*(1.0-d1-d2);
+		//d0_1=0.5*deltaT+0.5*(1.0-d1-d2);
+		//d0_2=-0.5*deltaT+0.5*(1.0-d1-d2);
 		duty[0]=0.5*d0_1;//V1(100)    //V1(100) V2(110) 
 		duty[1]=1.0-0.5*d0_1;//V2(110)
 		duty[2]=d2+0.5*d0_1;//V7(111)
@@ -326,10 +337,10 @@ fol(wm_inc, wm_inc_lpf, fol_w_inc);
 		d1=m*sin(PI_3-theta_Vo); //V1(1/3)tL        //V4(2/3)tH
 		d2=m*sin(theta_Vo);          //V2(2/3)tH      //V5(1/3)tL
 		deltaT=(Uo_ref/Vdc)-(d2/3.0)+(d1/3.0);
-		//d0_1=0;
-		//d0_2=0;
-		d0_1=0.5*deltaT+0.5*(1.0-d1-d2);
-		d0_2=-0.5*deltaT+0.5*(1.0-d1-d2);
+		d0_1=0;
+		d0_2=0;
+		//d0_1=0.5*deltaT+0.5*(1.0-d1-d2);
+		//d0_2=-0.5*deltaT+0.5*(1.0-d1-d2);
 		duty[0]= d0_1*0.5;//V7(111)
 		duty[1]=d1+0.5* d0_1;//V3(011),V7(111)
 		duty[2]=1.0-0.5* d0_1;//V5(001),V4(011),V7(111)
@@ -344,10 +355,10 @@ fol(wm_inc, wm_inc_lpf, fol_w_inc);
 		d1=m*sin(PI_3-theta_Vo); //V1(1/3)tL        //V4(2/3)tH
 		d2=m*sin(theta_Vo);          //V2(2/3)tH      //V5(1/3)tL
 		deltaT=(Uo_ref/Vdc)-(d2/3.0)+(d1/3.0);
-		//d0_1=0;
-		//d0_2=0;
-		d0_1=0.5*deltaT+0.5*(1.0-d1-d2);
-		d0_2=-0.5*deltaT+0.5*(1.0-d1-d2);
+		d0_1=0;
+		d0_2=0;
+		//d0_1=0.5*deltaT+0.5*(1.0-d1-d2);
+		//d0_2=-0.5*deltaT+0.5*(1.0-d1-d2);
 		duty[0]=d2+ d0_1*0.5;//V6(101),V7(111)
 		duty[1]=0.5* d0_1;//V7(111)
 		duty[2]=1.0-0.5* d0_1;//V5(001),V6(101),V7(111)
@@ -362,10 +373,10 @@ fol(wm_inc, wm_inc_lpf, fol_w_inc);
 		d1=m*sin(PI_3-theta_Vo); //V1(1/3)tL        //V4(2/3)tH
 		d2=m*sin(theta_Vo);          //V2(2/3)tH      //V5(1/3)tL
 		deltaT=(Uo_ref/Vdc)-(d2/3.0)+(d1/3.0);
-		//d0_1=0;
-		//d0_2=0;
-		d0_1=0.5*deltaT+0.5*(1.0-d1-d2);
-		d0_2=-0.5*deltaT+0.5*(1.0-d1-d2);
+		d0_1=0;
+		d0_2=0;
+		//d0_1=0.5*deltaT+0.5*(1.0-d1-d2);
+		//d0_2=-0.5*deltaT+0.5*(1.0-d1-d2);
 		duty[0]=1- d0_1*0.5;//V1(100),V6(101),V7(111)
 		duty[1]=0.5* d0_1;//V7(111)
 		duty[2]=d1+0.5*d0_1;//V6(101),V7(111)
