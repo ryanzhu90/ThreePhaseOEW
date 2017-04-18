@@ -6,9 +6,9 @@
 #include <UserFunc.h>
 #include <variables.h>
 #include <varinit.c>
-Float64 Amp=0.5;
-Float64 Freq=50;
-Float64 period = 0.1e-3,wt=0;
+Float64 TAmp=0.5;
+Float64 TFreq=1;
+Float64 Tperiod = 0.1e-3;
 void PWM_sync_interrupt(void)//60us
 {
 	RTLIB_TIC_START();          /* start time measurement */
@@ -253,7 +253,7 @@ fol(wm_inc, wm_inc_lpf, fol_w_inc);
 	Ube_ref=Ud_ref*sin(theta_re)+Uq_ref*cos(theta_re);//for SVPWM
 	
 		
-	wt=wt+pi*2*Freq*period;
+	wt=wt+PI*2*TFreq*Tperiod;
 	
 	
 	//------------- Output Voltage Limit for SVPWM-----------------
@@ -268,11 +268,12 @@ fol(wm_inc, wm_inc_lpf, fol_w_inc);
 	Vo_mag=Vomax;
 	} 
 		
-	m=Amp;//SQRT3*Vo_mag/(1.5*V_DC);
+	m=TAmp;//SQRT3*Vo_mag/(1.5*V_DC);
+	if(wt<0.0)wt=wt+PI2;
+	else if(wt>=PI2) wt=wt-PI2;
 	theta_Vo=wt;//atan2(Ube_ref,Ual_ref);//[-PI,PI)
 	
-	if(theta_Vo<0.0)theta_Vo=theta_Vo+PI2;
-	else if(theta_Vo>=PI2) theta_Vo=theta_Vo-PI2;
+
 		
 	if(theta_Vo>=0.0 && theta_Vo<PI_3)
 	{
